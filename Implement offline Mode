@@ -1,0 +1,1 @@
+git commit -m "Added offline support using IndexedDB for file storage"
