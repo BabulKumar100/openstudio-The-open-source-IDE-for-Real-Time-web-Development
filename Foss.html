@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenStudio - Live Code Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/theme/dracula.min.css">
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+        .sidebar {
+            flex: 1;
+            padding: 15px;
+            border-right: 2px solid #555;
+            background-color: #333;
+            color: white;
+        }
+        .sidebar h2 {
+            color: #f4a261;
+        }
+        #A {
+            color:#f4a261;
+        }
+        .editor {
+            flex: 2;
+            padding: 15px;
+            border-right: 2px solid #555;
+            background-color: #222;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .editor .CodeMirror {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background-color: #333;
+            color: #f4f4f4;
+        }
+        .preview {
+            flex: 1;
+            padding: 15px;
+            background-color: #444;
+            color: white;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview h2 {
+            color: #f4a261;
+        }
+        #live-preview {
+            flex: 1;
+            width: 100%;
+            border: 2px solid #f4a261;
+            background-color: white;
+            border-radius: 5px;
+            overflow: auto;
+            height: 100%;
+            resize: vertical;
+        }
+        button {
+            background: linear-gradient(to right, #f4a261, #e76f51);
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            border-radius: 25px;
+            margin-top: 10px;
+            transition: background 0.3s ease-in-out;
+        }
+        button:hover {
+            background: linear-gradient(to right, #e76f51, #f4a261);
+        }
+        input[type="file"] {
+            display: none;
+        }
+        label[for="file-input"] {
+            background: linear-gradient(to right, #f4a261, #e76f51);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 25px;
+            margin-top: 10px;
+            color: white;
+            text-align: center;
+            display: block;
+            width: 100%;
+            transition: background 0.3s ease-in-out;
+        }
+        label[for="file-input"]:hover {
+            background: linear-gradient(to right, #e76f51, #f4a261);
+        }
+        .file-container {
+            text-align: center;
+            width: 96%;
+        }
+
+        /* Custom CSS for highlighting misspelled words */
+        .CodeMirror span.CodeMirror-error {
+            text-decoration: underline wavy red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>File Tree</h2>
+            <ul>
+                <li>index.html</li>
+                <li>style.css</li>
+                <li>script.js</li>
+            </ul>
+        </div>
+        <div class="editor">
+            <h2 id="A">Editor</h2>
+            <textarea id="code-input" placeholder="Write HTML, CSS, or JavaScript..." spellcheck="true"><!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Hello, OpenStudio!</h1>
+    <p>Write HTML, CSS, and JavaScript here and see the preview live!</p>
+</body>
+</html></textarea>
+            <button onclick="downloadCode()">Download Code</button>
+            <button id="clear-btn">Clear</button>
+            <div class="file-container">
+                <label for="file-input">Choose a File</label>
+                <input type="file" id="file-input" onchange="loadFile(event)">
+            </div>
+        </div>
+        <div class="preview">
+            <h2>Preview</h2>
+            <iframe id="live-preview"></iframe>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/javascript/javascript.min.js"></script>
+    <script>
+        const codeInput = document.getElementById('code-input');
+        const previewFrame = document.getElementById('live-preview');
+
+        // Initialize CodeMirror editor with line numbers
+        const editor = CodeMirror.fromTextArea(codeInput, {
+            mode: "htmlmixed",
+            theme: "dracula",
+            lineNumbers: true,  // Enable line numbers
+            lineWrapping: true,
+            indentUnit: 4,
+            smartIndent: true,
+            extraKeys: {
+                "Ctrl-S": function(cm) { downloadCode(); },
+                "Ctrl-Z": function(cm) { cm.undo(); },
+                "Ctrl-Shift-C": function(cm) { clearText(); },
+                "Ctrl-F": function(cm) { searchText(); },
+            },
+            spellcheck: true, // Enable spellcheck in CodeMirror editor
+        });
+
+        // Update live preview
+        function updatePreview() {
+            const previewDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+            previewDoc.open();
+            previewDoc.write(editor.getValue());
+            previewDoc.close();
+        }
+
+        // Ensure the preview updates every second
+        updatePreview();
+        setInterval(updatePreview, 1000);
+
+        // Clear text when Clear button is clicked with confirmation
+        document.getElementById('clear-btn').addEventListener('click', function() {
+            const confirmClear = confirm("Would you like to delete the entire content?");
+            if (confirmClear) {
+                clearText();
+            }
+        });
+
+        function clearText() {
+            editor.setValue('');
+            updatePreview();
+        }
+
+        function downloadCode() {
+            const blob = new Blob([editor.getValue()], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'index.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function loadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                editor.setValue(e.target.result);
+                updatePreview();
+            };
+            reader.readAsText(file);
+        }
+
+        // This function highlights misspelled words
+        function highlightMisspelledWords() {
+            const text = editor.getValue();
+            const words = text.split(/\s+/); // Split the text into words
+            const dictionary = ["Hello", "OpenStudio", "Write", "HTML", "CSS", "JavaScript", "Live"];
+            
+            // Clear previous marks
+            const marks = editor.getDoc().getAllMarks();
+            marks.forEach(mark => mark.clear());
+
+            words.forEach((word) => {
+                // If the word is not in the dictionary, mark it as a misspelled word
+                if (!dictionary.includes(word)) {
+                    const wordPosition = text.indexOf(word);
+                    const start = editor.posFromIndex(wordPosition);
+                    const end = editor.posFromIndex(wordPosition + word.length);
+                    editor.getDoc().markText(start, end, { className: "CodeMirror-error" }); // Mark the misspelled word
+                }
+            });
+        }
+
+        // Update preview and highlight misspelled words every second
+        setInterval(() => {
+            updatePreview();
+            highlightMisspelledWords();
+        }, 1000);
+    </script>
+</body>
+</html>
